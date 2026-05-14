@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>实验室工作追踪</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --bg2: #161b22;
+    --bg3: #21262d;
+    --border: #30363d;
+    --text: #e6edf3;
+    --text2: #8b949e;
+    --text3: #484f58;
+    --accent: #58a6ff;
+    --green: #3fb950;
+    --radius: 8px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, "Segoe UI", sans-serif;
+    font-size: 14px;
+    min-height: 100vh;
+    padding: 32px 24px;
+  }
+  .container { max-width: 960px; margin: 0 auto; }
+
+  /* Header */
+  .header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 28px; flex-wrap: wrap; gap: 16px; }
+  .header h1 { font-size: 22px; font-weight: 600; color: var(--text); letter-spacing: -0.3px; }
+  .header p { font-size: 13px; color: var(--text2); margin-top: 4px; }
+  .status-dot { display: inline-flex; align-items: center; gap: 6px; background: var(--bg3); border: 1px solid var(--border); border-radius: 20px; padding: 5px 12px; font-size: 12px; color: var(--text2); }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+  /* Stats */
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 28px; }
+  .stat { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; }
+  .stat-label { font-size: 11px; color: var(--text2); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+  .stat-value { font-size: 26px; font-weight: 600; color: var(--text); line-height: 1; }
+  .stat-sub { font-size: 11px; color: var(--text3); margin-top: 5px; }
+
+  /* Theme picker */
+  .section { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; margin-bottom: 16px; }
+  .section-title { font-size: 13px; font-weight: 500; color: var(--text2); margin-bottom: 14px; display: flex; align-items: center; gap: 6px; }
+  .theme-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .theme-btn { width: 22px; height: 22px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; transition: border-color 0.15s, transform 0.1s; }
+  .theme-btn:hover { transform: scale(1.15); }
+  .theme-btn.active { border-color: var(--text); }
+  .theme-name { font-size: 12px; color: var(--text2); margin-left: 6px; }
+
+  /* Heatmap */
+  .heatmap-outer { display: flex; gap: 4px; overflow-x: auto; padding-bottom: 4px; }
+  .day-labels-col { display: flex; flex-direction: column; gap: 2px; padding-top: 18px; flex-shrink: 0; }
+  .day-lbl { font-size: 10px; color: var(--text3); height: 11px; display: flex; align-items: center; width: 16px; }
+  .heatmap-inner { flex: 1; min-width: 0; }
+  .month-row { display: flex; gap: 2px; margin-bottom: 4px; }
+  .month-lbl { font-size: 10px; color: var(--text2); width: 13px; overflow: visible; white-space: nowrap; }
+  .weeks-row { display: flex; gap: 2px; }
+  .week-col { display: flex; flex-direction: column; gap: 2px; }
+  .cell { width: 11px; height: 11px; border-radius: 2px; cursor: pointer; transition: opacity 0.12s; }
+  .cell:hover { opacity: 0.7; outline: 1px solid rgba(255,255,255,0.3); outline-offset: 1px; }
+  .legend { display: flex; align-items: center; gap: 5px; margin-top: 8px; }
+  .leg-cell { width: 11px; height: 11px; border-radius: 2px; }
+  .leg-label { font-size: 11px; color: var(--text3); }
+
+  /* Tooltip */
+  #tooltip {
+    position: fixed; background: var(--bg3); border: 1px solid var(--border);
+    border-radius: 6px; padding: 7px 12px; font-size: 12px; color: var(--text);
+    pointer-events: none; z-index: 9999; display: none; white-space: nowrap;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+  }
+
+  /* Topics */
+  .topic-row { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--border); }
+  .topic-row:last-child { border-bottom: none; }
+  .topic-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .topic-name { flex: 1; color: var(--text); font-size: 13px; }
+  .topic-bar-bg { flex: 2; background: var(--bg3); border-radius: 99px; height: 5px; overflow: hidden; }
+  .topic-bar-fill { height: 100%; border-radius: 99px; transition: width 0.4s; }
+  .topic-hours { font-size: 12px; color: var(--text2); min-width: 36px; text-align: right; }
+
+  /* Week table */
+  table { width: 100%; border-collapse: collapse; }
+  th { text-align: left; font-size: 11px; color: var(--text2); font-weight: 400; padding: 6px 10px; border-bottom: 1px solid var(--border); text-transform: uppercase; letter-spacing: 0.4px; }
+  td { padding: 10px 10px; border-bottom: 1px solid var(--border); color: var(--text); font-size: 13px; }
+  tr:last-child td { border-bottom: none; }
+  .td-main { font-weight: 500; }
+  .td-sub { font-size: 11px; color: var(--text3); margin-top: 2px; }
+
+  /* Sessions */
+  .session-item { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--border); }
+  .session-item:last-child { border-bottom: none; }
+  .session-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .session-name { flex: 1; font-size: 13px; color: var(--text); }
+  .session-time { font-size: 12px; color: var(--text2); }
+  .session-dur { font-size: 12px; color: var(--text3); margin-left: 8px; }
+
+  /* Load error */
+  .load-hint { background: #1a1200; border: 1px solid #3d2e00; border-radius: var(--radius); padding: 14px 18px; color: #e6a817; font-size: 13px; line-height: 1.7; margin-bottom: 20px; display: none; }
+  .load-hint code { background: #2a2000; border-radius: 4px; padding: 1px 6px; font-family: monospace; font-size: 12px; }
+  .empty { color: var(--text3); font-size: 13px; padding: 12px 0; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div class="header">
+    <div>
+      <h1>实验室工作追踪</h1>
+      <p id="subtitle">加载中...</p>
+    </div>
+    <div class="status-dot"><span class="dot"></span><span id="wifi-label">后台运行中</span></div>
+  </div>
+
+  <div class="load-hint" id="load-hint">
+    ⚠️ 无法读取数据文件。请先在终端运行：<br>
+    <code>cd C:\Users\你的用户名</code><br>
+    <code>python -m http.server 8080</code><br>
+    然后用浏览器打开 <code>http://localhost:8080/lab_dashboard.html</code>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="stat-label">本周工时</div><div class="stat-value" id="s-week">—</div><div class="stat-sub" id="s-week-days">—</div></div>
+    <div class="stat"><div class="stat-label">本月工时</div><div class="stat-value" id="s-month">—</div><div class="stat-sub">过去 30 天</div></div>
+    <div class="stat"><div class="stat-label">总计工时</div><div class="stat-value" id="s-total">—</div><div class="stat-sub">全年累计</div></div>
+    <div class="stat"><div class="stat-label">平均每日</div><div class="stat-value" id="s-avg">—</div><div class="stat-sub">工作日均值</div></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">🎨 主题颜色</div>
+    <div class="theme-row" id="theme-picker"></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">📅 过去一年贡献热力图</div>
+    <div class="heatmap-outer">
+      <div class="day-labels-col">
+        <div class="day-lbl">一</div><div class="day-lbl"></div>
+        <div class="day-lbl">三</div><div class="day-lbl"></div>
+        <div class="day-lbl">五</div><div class="day-lbl"></div>
+        <div class="day-lbl">日</div>
+      </div>
+      <div class="heatmap-inner">
+        <div class="month-row" id="month-row"></div>
+        <div class="weeks-row" id="weeks-row"></div>
+      </div>
+    </div>
+    <div class="legend">
+      <span class="leg-label">少</span>
+      <div class="leg-cell" id="l0"></div><div class="leg-cell" id="l1"></div>
+      <div class="leg-cell" id="l2"></div><div class="leg-cell" id="l3"></div>
+      <div class="leg-cell" id="l4"></div>
+      <span class="leg-label">多</span>
+    </div>
+  </div>
+
+  <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px;">
+    <div class="section">
+      <div class="section-title">🏷️ 主题分类</div>
+      <div id="topic-list"><div class="empty">暂无数据</div></div>
+    </div>
+    <div class="section">
+      <div class="section-title">📋 今日会话</div>
+      <div id="session-list"><div class="empty">今日暂无记录</div></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">📊 近 6 周汇总</div>
+    <table>
+      <thead><tr><th>周次</th><th>工作天数</th><th>总工时</th><th>最长单日</th></tr></thead>
+      <tbody id="week-tbody"></tbody>
+    </table>
+  </div>
+
+</div>
+<div id="tooltip"></div>
+
+<script>
+// ── 主题配置 ──────────────────────────────
+const THEMES = [
+  { name:'绿色',  c:['#161b22','#0e4429','#006d32','#26a641','#39d353'] },
+  { name:'蓝色',  c:['#161b22','#0c2a4a','#1158a7','#2c8dcc','#58c8f8'] },
+  { name:'紫色',  c:['#161b22','#2a1060','#6e3fc0','#9d6eea','#c9a8f7'] },
+  { name:'橙色',  c:['#161b22','#3d1f00','#994f00','#d47800','#f5a623'] },
+  { name:'粉色',  c:['#161b22','#4a0a2a','#9e2060','#d45096','#f589c4'] },
+  { name:'青色',  c:['#161b22','#003d33','#0a7a66','#1dbfa5','#4de8cc'] },
+];
+const TOPIC_COLORS = ['#39d353','#58c8f8','#c9a8f7','#f5a623','#f589c4','#4de8cc','#e87a7a'];
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+let theme = 0;
+let daily = {};   // { "2025-05-14": { total: 6.5, topics: {...} } }
+let sessions = [];
+
+// ── 数据加载 ──────────────────────────────
+async function loadData() {
+  // 尝试从本地 server 读取
+  const paths = [
+    '/data/data.json',
+    '/data.json',
+  ];
+  for (const p of paths) {
+    try {
+      const res = await fetch(p);
+      if (!res.ok) continue;
+      const json = await res.json();
+      daily = json.daily || {};
+      sessions = json.sessions || [];
+      document.getElementById('subtitle').textContent =
+        '数据已加载 · ' + new Date().toLocaleString('zh-CN');
+      return true;
+    } catch(e) {}
+  }
+  return false;
+}
+
+// ── 工具函数 ──────────────────────────────
+function dateKey(d) { return d.toISOString().slice(0,10); }
+
+function getH(key) { return (daily[key] || {}).total || 0; }
+
+function getColor(h) {
+  const c = THEMES[theme].c;
+  if (h <= 0)  return c[0];
+  if (h < 2)   return c[1];
+  if (h < 4)   return c[2];
+  if (h < 7)   return c[3];
+  return c[4];
+}
+
+function fmt(h) { return h.toFixed(1) + 'h'; }
+
+// ── 统计卡片 ──────────────────────────────
+function renderStats() {
+  const today = new Date();
+  const dow = (today.getDay() + 6) % 7;
+  let wk=0, wkDays=0;
+  for (let i=0; i<=dow; i++) {
+    const d = new Date(today); d.setDate(d.getDate()-i);
+    const h = getH(dateKey(d));
+    wk += h; if (h>0) wkDays++;
+  }
+  let mo=0;
+  for (let i=0; i<30; i++) {
+    const d = new Date(today); d.setDate(d.getDate()-i);
+    mo += getH(dateKey(d));
+  }
+  let tot=0, wdays=0;
+  Object.values(daily).forEach(v => { tot += v.total||0; if((v.total||0)>0) wdays++; });
+
+  document.getElementById('s-week').textContent = fmt(wk);
+  document.getElementById('s-week-days').textContent = wkDays + ' 天有记录';
+  document.getElementById('s-month').textContent = Math.round(mo) + 'h';
+  document.getElementById('s-total').textContent = Math.round(tot) + 'h';
+  document.getElementById('s-avg').textContent = wdays>0 ? (tot/wdays).toFixed(1)+'h' : '0h';
+}
+
+// ── 主题选择器 ────────────────────────────
+function renderThemePicker() {
+  const el = document.getElementById('theme-picker');
+  el.innerHTML = '';
+  THEMES.forEach((t,i) => {
+    const btn = document.createElement('div');
+    btn.className = 'theme-btn' + (i===theme?' active':'');
+    btn.style.background = t.c[3];
+    btn.title = t.name;
+    btn.onclick = () => { theme=i; render(); };
+    el.appendChild(btn);
+  });
+  const lbl = document.createElement('span');
+  lbl.className = 'theme-name';
+  lbl.textContent = THEMES[theme].name;
+  el.appendChild(lbl);
+}
+
+// ── 热力图 ────────────────────────────────
+function renderHeatmap() {
+  const today = new Date();
+  const start = new Date(today); start.setDate(start.getDate()-364);
+  const startDow = (start.getDay()+6)%7;
+
+  let weeks=[], cur=Array(startDow).fill(null);
+  let d = new Date(start);
+  let monthPos = {};
+
+  while (d <= today) {
+    const key = dateKey(d);
+    const wi = weeks.length;
+    const m = d.getMonth();
+    if (monthPos[m]===undefined) monthPos[m]=wi;
+    cur.push({key, date:new Date(d), h:getH(key)});
+    if (cur.length===7) { weeks.push(cur); cur=[]; }
+    d.setDate(d.getDate()+1);
+  }
+  if (cur.length) weeks.push(cur);
+
+  // Month labels
+  const mRow = document.getElementById('month-row');
+  mRow.innerHTML='';
+  const lblArr = new Array(weeks.length).fill('');
+  Object.entries(monthPos).forEach(([m,wi])=>{ lblArr[wi]=MONTHS[m]; });
+  lblArr.forEach(lbl=>{
+    const span=document.createElement('div');
+    span.className='month-lbl'; span.style.width='13px';
+    span.textContent=lbl; mRow.appendChild(span);
+  });
+
+  // Cells
+  const tooltip = document.getElementById('tooltip');
+  const wRow = document.getElementById('weeks-row');
+  wRow.innerHTML='';
+  weeks.forEach(week=>{
+    const col=document.createElement('div'); col.className='week-col';
+    for (let di=0;di<7;di++) {
+      const cell=document.createElement('div'); cell.className='cell';
+      const day=week[di];
+      if (day) {
+        cell.style.background=getColor(day.h);
+        cell.onmousemove=(e)=>{
+          tooltip.style.display='block';
+          tooltip.style.left=(e.clientX+14)+'px';
+          tooltip.style.top=(e.clientY-36)+'px';
+          const ds=day.date.toLocaleDateString('zh-CN',{month:'short',day:'numeric',weekday:'short'});
+          tooltip.textContent=day.h>0?`${ds}  ${day.h.toFixed(1)}h`:`${ds}  无记录`;
+        };
+        cell.onmouseleave=()=>{tooltip.style.display='none';};
+      } else {
+        cell.style.background='transparent'; cell.style.cursor='default';
+      }
+      col.appendChild(cell);
+    }
+    wRow.appendChild(col);
+  });
+
+  // Legend
+  const c=THEMES[theme].c;
+  [0,1,2,3,4].forEach(i=>{ document.getElementById('l'+i).style.background=c[i]; });
+}
+
+// ── 主题分类 ──────────────────────────────
+function renderTopics() {
+  const topicTotals = {};
+  Object.values(daily).forEach(v=>{
+    Object.entries(v.topics||{}).forEach(([t,h])=>{
+      topicTotals[t]=(topicTotals[t]||0)+h;
+    });
+  });
+  const sorted = Object.entries(topicTotals).sort((a,b)=>b[1]-a[1]);
+  const maxH = sorted.length ? sorted[0][1] : 1;
+  const el = document.getElementById('topic-list');
+  if (!sorted.length) { el.innerHTML='<div class="empty">暂无主题数据</div>'; return; }
+  el.innerHTML='';
+  sorted.forEach(([name,h],i)=>{
+    const color=TOPIC_COLORS[i%TOPIC_COLORS.length];
+    const row=document.createElement('div'); row.className='topic-row';
+    row.innerHTML=`
+      <div class="topic-dot" style="background:${color}"></div>
+      <div class="topic-name">${name}</div>
+      <div class="topic-bar-bg"><div class="topic-bar-fill" style="width:${(h/maxH*100).toFixed(0)}%;background:${color}"></div></div>
+      <div class="topic-hours">${h.toFixed(1)}h</div>
+    `;
+    el.appendChild(row);
+  });
+}
+
+// ── 今日会话 ──────────────────────────────
+function renderSessions() {
+  const todayKey = dateKey(new Date());
+  const todaySessions = sessions.filter(s=>s.date===todayKey);
+  const el=document.getElementById('session-list');
+  if (!todaySessions.length) { el.innerHTML='<div class="empty">今日暂无记录</div>'; return; }
+  el.innerHTML='';
+  todaySessions.forEach((s,i)=>{
+    const color=TOPIC_COLORS[i%TOPIC_COLORS.length];
+    const start=s.start.slice(11,16);
+    const end=s.end?s.end.slice(11,16):'进行中';
+    const item=document.createElement('div'); item.className='session-item';
+    item.innerHTML=`
+      <div class="session-dot" style="background:${color}"></div>
+      <div class="session-name">${s.topic||'工作'}</div>
+      <div class="session-time">${start} → ${end}</div>
+      <div class="session-dur">${s.hours?s.hours.toFixed(1)+'h':''}</div>
+    `;
+    el.appendChild(item);
+  });
+}
+
+// ── 近 6 周汇总 ───────────────────────────
+function renderWeeks() {
+  const today=new Date();
+  const tbody=document.getElementById('week-tbody');
+  tbody.innerHTML='';
+  for (let w=0;w<6;w++) {
+    const wEnd=new Date(today); wEnd.setDate(wEnd.getDate()-w*7);
+    const dow=(wEnd.getDay()+6)%7;
+    const wStart=new Date(wEnd); wStart.setDate(wEnd.getDate()-dow);
+    let tot=0,days=0,maxD=0;
+    for (let i=0;i<=6;i++) {
+      const dd=new Date(wStart); dd.setDate(wStart.getDate()+i);
+      if (dd>today) continue;
+      const h=getH(dateKey(dd));
+      tot+=h; if(h>0)days++; if(h>maxD)maxD=h;
+    }
+    const label=w===0?'本周':`前 ${w} 周`;
+    const range=wStart.toLocaleDateString('zh-CN',{month:'short',day:'numeric'})+
+                ' – '+wEnd.toLocaleDateString('zh-CN',{month:'short',day:'numeric'});
+    const tr=document.createElement('tr');
+    tr.innerHTML=`
+      <td><div class="td-main">${label}</div><div class="td-sub">${range}</div></td>
+      <td>${days} 天</td>
+      <td style="font-weight:500;color:${tot>0?'#e6edf3':'#484f58'}">${fmt(tot)}</td>
+      <td>${fmt(maxD)}</td>
+    `;
+    tbody.appendChild(tr);
+  }
+}
+
+// ── 主渲染 ────────────────────────────────
+function render() {
+  renderThemePicker();
+  renderHeatmap();
+  renderStats();
+  renderTopics();
+  renderSessions();
+  renderWeeks();
+}
+
+// ── 启动 ──────────────────────────────────
+(async()=>{
+  const ok = await loadData();
+  if (!ok) {
+    document.getElementById('load-hint').style.display='block';
+    document.getElementById('subtitle').textContent='未能加载数据，请启动本地服务器';
+  }
+  render();
+  // 每 60 秒自动刷新数据
+  setInterval(async()=>{
+    await loadData();
+    render();
+  }, 60000);
+})();
+</script>
+</body>
+</html>

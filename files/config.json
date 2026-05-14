@@ -1,0 +1,8 @@
+{
+  "target_wifis": [
+    "SSID-B40D73"
+  ],
+  "check_interval": 30,
+  "show_settings_on_start": true,
+  "autostart": false
+}
