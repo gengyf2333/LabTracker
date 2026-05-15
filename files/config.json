@@ -1,8 +1,8 @@
 {
   "target_wifis": [
-    "SSID-B40D73"
+    "ICELAB_5G"
   ],
   "check_interval": 30,
   "show_settings_on_start": true,
-  "autostart": false
+  "autostart": true
 }

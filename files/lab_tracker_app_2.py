@@ -5,6 +5,10 @@
 - 系统托盘图标，后台静默运行
 - 自动检测WiFi，记录工作时长
 - 支持打包为 .exe
+打开本地server
+cd "E:\Coin Laundry\LabTracker\files"
+python -m http.server 8080
+http://localhost:8080/lab_dashboard.html
 """
 
 import subprocess
@@ -22,7 +26,7 @@ from tkinter import ttk, messagebox
 
 # ── 路径配置 ──────────────────────────────────
 APP_NAME    = "LabTracker"
-BASE_DIR    = Path("E:/Coin Laundry/工作时长自动记录/files")
+BASE_DIR    = Path("E:/Coin Laundry/LabTracker/files")
 DATA_DIR    = BASE_DIR / "data"
 LOG_DIR     = BASE_DIR / "log"
 CONFIG_FILE = BASE_DIR / "config.json"
@@ -442,6 +446,13 @@ class TrayApp:
                                 bg="#1a1a2e", fg="#666", cursor="hand2")
         settings_btn.pack(side="right", padx=(0,6))
         settings_btn.bind("<Button-1>", lambda e: self._open_settings())
+        # 退出按钮
+        quit_btn = tk.Label(self.bar, text="✕", font=("Segoe UI", 11),
+                            bg="#1a1a2e", fg="#666", cursor="hand2")
+        quit_btn.pack(side="right", padx=(0,2))
+        quit_btn.bind("<Button-1>", lambda e: self._quit())
+        quit_btn.bind("<Enter>", lambda e: quit_btn.config(fg="#e94560"))
+        quit_btn.bind("<Leave>", lambda e: quit_btn.config(fg="#666"))
 
         # 拖动支持
         self.bar.bind("<Button-1>", self._start_drag)
@@ -478,6 +489,9 @@ class TrayApp:
 
     def _track_loop(self):
         last_report_week = None
+        last_flush = datetime.now()
+        FLUSH_INTERVAL = 300  # 每5分钟自动写入一次进行中的数据
+
         while self.running:
             now = datetime.now()
             wifi = get_current_wifi()
@@ -496,6 +510,7 @@ class TrayApp:
                     elapsed = (now - self.session_start).total_seconds() / 3600
                     if elapsed > 0.05:
                         day = date_key(self.session_start.date())
+                        self._remove_temp_session(day)
                         add_hours(self.data, day, round(elapsed, 2))
                         self.data["sessions"].append({
                             "date": day,
@@ -508,6 +523,32 @@ class TrayApp:
                         log(f"⏹  会话结束，记录 {elapsed:.2f}h → {day}")
                     self.session_start = None
                 self.current_wifi = None
+            # 进行中的会话定期刷入文件（不断开WiFi也能看到实时数据）
+            if self.in_lab and self.session_start:
+                secs_since_flush = (now - last_flush).total_seconds()
+                if secs_since_flush >= FLUSH_INTERVAL:
+                    elapsed = (now - self.session_start).total_seconds() / 3600
+                    if elapsed > 0.05:
+                        day = date_key(self.session_start.date())
+                        self._remove_temp_session(day)
+                        base_total = (self.data["daily"].get(day) or {"total": 0.0})["total"]
+                        tmp_data = {
+                            "daily": {
+                                **self.data["daily"],
+                                day: {"total": round(base_total + elapsed, 2)}
+                            },
+                            "sessions": self.data["sessions"] + [{
+                                "date": day,
+                                "start": self.session_start.isoformat(timespec="minutes"),
+                                "end": "进行中",
+                                "hours": round(elapsed, 2),
+                                "wifi": self.current_wifi or "unknown",
+                                "_temp": True
+                            }]
+                        }
+                        save_data(tmp_data)
+                        last_flush = now
+                        log(f"🔄 刷新进行中数据 {elapsed:.2f}h")
 
             # 周报（周一）
             if now.weekday() == 0:
@@ -518,6 +559,19 @@ class TrayApp:
 
             interval = self.cfg.get("check_interval", 30)
             time.sleep(interval)
+
+    def _remove_temp_session(self, day):
+        """移除之前刷入的临时进行中会话，避免重复计算"""
+        self.data["sessions"] = [
+            s for s in self.data["sessions"]
+            if not (s.get("_temp") and s.get("date") == day)
+        ]
+        real_total = sum(
+            s["hours"] for s in self.data["sessions"]
+            if s.get("date") == day and not s.get("_temp")
+        )
+        if day in self.data["daily"]:
+            self.data["daily"][day]["total"] = round(real_total, 2)
 
     def _show_status(self):
         today_key = date_key()
