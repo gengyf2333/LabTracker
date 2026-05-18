@@ -1,6 +1,7 @@
 {
   "target_wifis": [
-    "ICELAB_5G"
+    "ICELAB_5G",
+    "5GHz-Rits-1Xauth"
   ],
   "check_interval": 30,
   "show_settings_on_start": true,

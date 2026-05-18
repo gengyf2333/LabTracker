@@ -386,6 +386,7 @@ class TrayApp:
     def __init__(self, cfg):
         self.cfg = cfg
         self.data = load_data()
+        self._cleanup_temp_on_startup()  # 加这行
         self.session_start = None
         self.in_lab = False
         self.running = True
@@ -425,7 +426,7 @@ class TrayApp:
 
         sw = self.bar.winfo_screenwidth()
         sh = self.bar.winfo_screenheight()
-        w, h = 260, 40
+        w, h = 300, 40
         self.bar.geometry(f"{w}x{h}+{sw-w-12}+{sh-h-52}")
 
         self.bar.configure(bg="#1a1a2e")
@@ -572,6 +573,20 @@ class TrayApp:
         )
         if day in self.data["daily"]:
             self.data["daily"][day]["total"] = round(real_total, 2)
+    def _cleanup_temp_on_startup(self):
+        """启动时清理临时会话，但把临时工时并入正式记录，不丢数据"""
+        temp_sessions = [s for s in self.data["sessions"] if s.get("_temp")]
+        for s in temp_sessions:
+            day = s.get("date")
+            hours = s.get("hours", 0)
+            # 把临时工时转为正式记录
+            if day:
+                if day not in self.data["daily"]:
+                    self.data["daily"][day] = {"total": 0.0}
+                # daily里已经包含了临时工时，所以只需要把_temp会话改为正式会话
+                s.pop("_temp")
+                s["end"] = s.get("end", "未知")
+        save_data(self.data)
 
     def _show_status(self):
         today_key = date_key()
