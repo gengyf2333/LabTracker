@@ -210,7 +210,6 @@ async function loadData() {
       const res = await fetch(p);
       if (!res.ok) continue;
       const json = await res.json();
-      daily = json.daily || {};
       sessions = json.sessions || [];
       document.getElementById('subtitle').textContent =
         '数据已加载 · ' + new Date().toLocaleString('zh-CN');
@@ -223,7 +222,11 @@ async function loadData() {
 // ── 工具函数 ──────────────────────────────
 function dateKey(d) { return d.toISOString().slice(0,10); }
 
-function getH(key) { return (daily[key] || {}).total || 0; }
+function getH(key) {
+  return sessions
+    .filter(s => s.date === key && !s._temp)
+    .reduce((sum, s) => sum + (s.hours || 0), 0);
+}
 
 function getColor(h) {
   const c = THEMES[theme].c;
@@ -252,7 +255,11 @@ function renderStats() {
     mo += getH(dateKey(d));
   }
   let tot=0, wdays=0;
-  Object.values(daily).forEach(v => { tot += v.total||0; if((v.total||0)>0) wdays++; });
+  const dayTotals = {};
+  sessions.filter(s => !s._temp).forEach(s => {
+    dayTotals[s.date] = (dayTotals[s.date] || 0) + (s.hours || 0);
+  });
+  Object.values(dayTotals).forEach(h => { tot += h; if(h > 0) wdays++; });
 
   document.getElementById('s-week').textContent = fmt(wk);
   document.getElementById('s-week-days').textContent = wkDays + ' 天有记录';
@@ -281,19 +288,29 @@ function renderThemePicker() {
 
 // ── 热力图 ────────────────────────────────
 function renderHeatmap() {
-  const today = new Date();
-  const start = new Date(today); start.setDate(start.getDate()-364);
-  const startDow = (start.getDay()+6)%7;
+  const CELL = 11, GAP = 2, COL = CELL + GAP; // 每列宽度13px
 
-  let weeks=[], cur=Array(startDow).fill(null);
+  const today = new Date();
+  today.setHours(0,0,0,0);
+
+  // 从364天前的周一开始
+  const start = new Date(today);
+  start.setDate(today.getDate() - 364);
+  // 回退到那周的周一
+  const startDow = (start.getDay()+6)%7;
+  start.setDate(start.getDate() - startDow);
+
+  let weeks=[], cur=[];
   let d = new Date(start);
-  let monthPos = {};
+  let monthWeekIdx = {}; // month*100+year -> week index of the 1st of that month
 
   while (d <= today) {
     const key = dateKey(d);
-    const wi = weeks.length;
     const m = d.getMonth();
-    if (monthPos[m]===undefined) monthPos[m]=wi;
+    const y = d.getFullYear();
+    const mk = y*100+m;
+    // 记录每月1号所在的列
+    if (d.getDate()===1) monthWeekIdx[mk] = weeks.length;
     cur.push({key, date:new Date(d), h:getH(key)});
     if (cur.length===7) { weeks.push(cur); cur=[]; }
     d.setDate(d.getDate()+1);
@@ -303,20 +320,37 @@ function renderHeatmap() {
   // Month labels
   const mRow = document.getElementById('month-row');
   mRow.innerHTML='';
+  mRow.style.display='flex';
+  mRow.style.gap='0';
+  mRow.style.marginBottom='4px';
+
   const lblArr = new Array(weeks.length).fill('');
-  Object.entries(monthPos).forEach(([m,wi])=>{ lblArr[wi]=MONTHS[m]; });
+  Object.entries(monthWeekIdx).forEach(([mk,wi])=>{
+    const m = (+mk)%100;
+    lblArr[wi] = MONTHS[m];
+  });
   lblArr.forEach(lbl=>{
     const span=document.createElement('div');
-    span.className='month-lbl'; span.style.width='13px';
-    span.textContent=lbl; mRow.appendChild(span);
+    span.style.width=COL+'px';
+    span.style.flexShrink='0';
+    span.style.fontSize='10px';
+    span.style.color='var(--text2)';
+    span.style.overflow='visible';
+    span.style.whiteSpace='nowrap';
+    span.textContent=lbl;
+    mRow.appendChild(span);
   });
 
   // Cells
   const tooltip = document.getElementById('tooltip');
   const wRow = document.getElementById('weeks-row');
   wRow.innerHTML='';
+  wRow.style.gap='0';
+
   weeks.forEach(week=>{
     const col=document.createElement('div'); col.className='week-col';
+    col.style.width=COL+'px';
+    col.style.flexShrink='0';
     for (let di=0;di<7;di++) {
       const cell=document.createElement('div'); cell.className='cell';
       const day=week[di];
@@ -397,9 +431,12 @@ function renderWeeks() {
   const tbody=document.getElementById('week-tbody');
   tbody.innerHTML='';
   for (let w=0;w<6;w++) {
-    const wEnd=new Date(today); wEnd.setDate(wEnd.getDate()-w*7);
-    const dow=(wEnd.getDay()+6)%7;
-    const wStart=new Date(wEnd); wStart.setDate(wEnd.getDate()-dow);
+    // 本周一
+    const thisMonday = new Date(today);
+    thisMonday.setDate(today.getDate() - (today.getDay()+6)%7);
+    // 第w周的周一和周日
+    const wStart = new Date(thisMonday); wStart.setDate(thisMonday.getDate() - w*7);
+    const wEnd = new Date(wStart); wEnd.setDate(wStart.getDate() + 6);
     let tot=0,days=0,maxD=0;
     for (let i=0;i<=6;i++) {
       const dd=new Date(wStart); dd.setDate(wStart.getDate()+i);
