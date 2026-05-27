@@ -2,7 +2,8 @@
   "target_wifis": [
     "ICELAB_5G",
     "5GHz-Rits-1Xauth",
-    "SSID-B40D73"
+    "SSID-B40D73",
+    "Rits-1Xauth"
   ],
   "check_interval": 30,
   "show_settings_on_start": true,

@@ -96,7 +96,8 @@ def get_current_wifi():
     try:
         result = subprocess.run(
             ["netsh", "wlan", "show", "interfaces"],
-            capture_output=True, timeout=5
+            capture_output=True, timeout=5,
+            creationflags=subprocess.CREATE_NO_WINDOW  # 加这一行
         )
         raw = result.stdout
         for enc in ("utf-8", "gbk", "cp936", "latin-1"):

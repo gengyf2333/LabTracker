@@ -290,32 +290,40 @@ function renderThemePicker() {
 function renderHeatmap() {
   const CELL = 11, GAP = 2, COL = CELL + GAP; // 每列宽度13px
 
-  const today = new Date();
-  today.setHours(0,0,0,0);
+  // 用字符串日期避免时区问题
+  const todayKey = dateKey(new Date());
+  const todayDate = new Date(todayKey + 'T12:00:00'); // 用中午时间避免夏令时边界
 
-  // 从364天前的周一开始
-  const start = new Date(today);
-  start.setDate(today.getDate() - 364);
+  // 从364天前开始
+  const startDate = new Date(todayDate);
+  startDate.setDate(startDate.getDate() - 364);
   // 回退到那周的周一
-  const startDow = (start.getDay()+6)%7;
-  start.setDate(start.getDate() - startDow);
+  const startDow = (startDate.getDay()+6)%7;
+  startDate.setDate(startDate.getDate() - startDow);
 
   let weeks=[], cur=[];
-  let d = new Date(start);
-  let monthWeekIdx = {}; // month*100+year -> week index of the 1st of that month
+  let monthWeekIdx = {};
 
-  while (d <= today) {
+  // 先填第一周开头的空格（周一=0行）
+  const firstDow = (startDate.getDay()+6)%7;
+  for (let i=0;i<firstDow;i++) cur.push(null);
+
+  // 逐天遍历，用T12:00:00固定时间避免时区导致日期跳变
+  let d = new Date(startDate);
+  while (dateKey(d) <= todayKey) {
     const key = dateKey(d);
     const m = d.getMonth();
     const y = d.getFullYear();
     const mk = y*100+m;
-    // 记录每月1号所在的列
     if (d.getDate()===1) monthWeekIdx[mk] = weeks.length;
-    cur.push({key, date:new Date(d), h:getH(key)});
+    cur.push({key, date: new Date(key + 'T12:00:00'), h: getH(key)});
     if (cur.length===7) { weeks.push(cur); cur=[]; }
     d.setDate(d.getDate()+1);
   }
-  if (cur.length) weeks.push(cur);
+  if (cur.length) {
+    while (cur.length<7) cur.push(null);
+    weeks.push(cur);
+  }
 
   // Month labels
   const mRow = document.getElementById('month-row');
