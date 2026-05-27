@@ -54,18 +54,18 @@
 
   /* Heatmap */
   .heatmap-outer { display: flex; gap: 4px; overflow-x: auto; padding-bottom: 4px; }
-  .day-labels-col { display: flex; flex-direction: column; gap: 2px; padding-top: 18px; flex-shrink: 0; }
-  .day-lbl { font-size: 10px; color: var(--text3); height: 11px; display: flex; align-items: center; width: 16px; }
+  .day-labels-col { display: flex; flex-direction: column; gap: 2px; padding-top: 20px; flex-shrink: 0; }
+  .day-lbl { font-size: 12px; color: var(--text3); height: 14px; display: flex; align-items: center; width: 32px; }
   .heatmap-inner { flex: 1; min-width: 0; }
   .month-row { display: flex; gap: 2px; margin-bottom: 4px; }
-  .month-lbl { font-size: 10px; color: var(--text2); width: 13px; overflow: visible; white-space: nowrap; }
+  .month-lbl { font-size: 20px; color: var(--text2); width: 14px; overflow: visible; white-space: nowrap; direction: ltr; }
   .weeks-row { display: flex; gap: 2px; }
   .week-col { display: flex; flex-direction: column; gap: 2px; }
-  .cell { width: 11px; height: 11px; border-radius: 2px; cursor: pointer; transition: opacity 0.12s; }
+  .cell { width: 14px; height: 14px; border-radius: 2px; cursor: pointer; transition: opacity 0.12s; }
   .cell:hover { opacity: 0.7; outline: 1px solid rgba(255,255,255,0.3); outline-offset: 1px; }
   .legend { display: flex; align-items: center; gap: 5px; margin-top: 8px; }
-  .leg-cell { width: 11px; height: 11px; border-radius: 2px; }
-  .leg-label { font-size: 11px; color: var(--text3); }
+  .leg-cell { width: 12px; height: 12px; border-radius: 2px; }
+  .leg-label { font-size: 12px; color: var(--text3); }
 
   /* Tooltip */
   #tooltip {
@@ -140,10 +140,10 @@
     <div class="section-title">📅 过去一年贡献热力图</div>
     <div class="heatmap-outer">
       <div class="day-labels-col">
-        <div class="day-lbl">一</div><div class="day-lbl"></div>
-        <div class="day-lbl">三</div><div class="day-lbl"></div>
-        <div class="day-lbl">五</div><div class="day-lbl"></div>
-        <div class="day-lbl">日</div>
+        <div class="day-lbl">Mon</div><div class="day-lbl"></div>
+        <div class="day-lbl">Wed</div><div class="day-lbl"></div>
+        <div class="day-lbl">Fri</div><div class="day-lbl"></div>
+        <div class="day-lbl">Sun</div>
       </div>
       <div class="heatmap-inner">
         <div class="month-row" id="month-row"></div>
@@ -288,7 +288,7 @@ function renderThemePicker() {
 
 // ── 热力图 ────────────────────────────────
 function renderHeatmap() {
-  const CELL = 11, GAP = 2, COL = CELL + GAP; // 每列宽度13px
+  const CELL = 14, GAP = 2, COL = CELL + GAP; // 每列宽度14px
 
   // 用字符串日期避免时区问题
   const todayKey = dateKey(new Date());
@@ -341,7 +341,7 @@ function renderHeatmap() {
     const span=document.createElement('div');
     span.style.width=COL+'px';
     span.style.flexShrink='0';
-    span.style.fontSize='10px';
+    span.style.fontSize='12px';
     span.style.color='var(--text2)';
     span.style.overflow='visible';
     span.style.whiteSpace='nowrap';
