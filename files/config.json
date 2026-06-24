@@ -7,5 +7,6 @@
   ],
   "check_interval": 30,
   "show_settings_on_start": true,
-  "autostart": true
+  "autostart": true,
+  "last_auto_report_week": "2026-W26"
 }
